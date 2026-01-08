@@ -135,3 +135,15 @@ function loadRoutine(key) {
         container.style.opacity = '1';
     }, 150);
 }
+function toggleHabit(id) {
+    const isChecked = document.getElementById(id).checked;
+    localStorage.setItem(id, isChecked); // Guarda el estado en el navegador
+}
+
+// Al cargar la página, recuperar el estado
+window.onload = () => {
+    ['cinta-check', 'postura-check'].forEach(id => {
+        const saved = localStorage.getItem(id) === 'true';
+        document.getElementById(id).checked = saved;
+    });
+};
