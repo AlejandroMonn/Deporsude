@@ -7,6 +7,7 @@ let currentRoutineKey = 'A';
 let activeExercisesList = [];
 let currentExerciseIndex = 0;
 let timerInterval = null;
+let cameraMode = false; // false = video YouTube, true = cámara AI
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -239,6 +240,11 @@ function loadActiveExercise() {
     const ex = activeExercisesList[currentExerciseIndex];
     if(!ex) return;
 
+    // Configurar el ejercicio actual para el contador
+    if (typeof setCurrentExercise === 'function') {
+        setCurrentExercise(ex.n);
+    }
+
     // Actualizar UI
     document.getElementById('wo-title').innerText = ex.n;
     
@@ -256,13 +262,15 @@ function loadActiveExercise() {
     document.getElementById('wo-note').innerText = ex.note;
     document.getElementById('wo-progress').innerText = `Ejercicio ${currentExerciseIndex + 1}/${activeExercisesList.length}`;
 
-    // Video Iframe
-    const videoFrame = document.getElementById('wo-video');
-    if(ex.v.includes('embed')) {
-        videoFrame.src = ex.v;
-    } else {
-        // Video genérico si no es embed
-        videoFrame.src = "https://www.youtube.com/embed/videoseries?list=PL_J8l4H9C_2w4-J3B7y8";
+    // Si no está en modo cámara, mostrar video de YouTube
+    if (!cameraMode) {
+        const videoFrame = document.getElementById('wo-video');
+        if(ex.v.includes('embed')) {
+            videoFrame.src = ex.v;
+        } else {
+            // Video genérico si no es embed
+            videoFrame.src = "https://www.youtube.com/embed/videoseries?list=PL_J8l4H9C_2w4-J3B7y8";
+        }
     }
 
     // Timer
@@ -299,11 +307,49 @@ function nextExercise() {
 
 function closeWorkout() {
     stopTimer();
+    
+    // Detener cámara si está activa
+    if (cameraMode && typeof stopPoseDetection === 'function') {
+        stopPoseDetection();
+        cameraMode = false;
+    }
+    
     const modal = document.getElementById('workout-mode');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
     // Limpiar src del video para detener reproducción
     document.getElementById('wo-video').src = "";
+}
+
+// --- TOGGLE CÁMARA AI ---
+function toggleCameraMode() {
+    cameraMode = !cameraMode;
+    
+    const toggleBtn = document.getElementById('camera-toggle');
+    
+    if (cameraMode) {
+        // Activar modo cámara AI
+        console.log("🎥 Activando modo cámara AI...");
+        
+        if (typeof startPoseDetection === 'function') {
+            startPoseDetection();
+            toggleBtn.innerHTML = '<i class="fas fa-video text-emerald-400 text-lg"></i>';
+        } else {
+            console.error("❌ Función de detección de pose no disponible");
+            alert("Error: El sistema de visión por computadora no está disponible.");
+            cameraMode = false;
+        }
+    } else {
+        // Volver a modo video
+        console.log("📺 Volviendo a modo video...");
+        
+        if (typeof stopPoseDetection === 'function') {
+            stopPoseDetection();
+        }
+        
+        toggleBtn.innerHTML = '<i class="fas fa-video text-lg"></i>';
+        loadActiveExercise(); // Recargar para mostrar video de YouTube
+    }
 }
 
 // --- TIMER UTILS ---
@@ -346,14 +392,6 @@ function formatTime(sec) {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
     return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
-}
-
-function toggleSound() {
-    const audio = document.getElementById('timer-sound');
-    if(audio) {
-        audio.muted = !audio.muted;
-        document.getElementById('sound-icon').className = audio.muted ? 'fas fa-volume-mute' : 'fas fa-volume-up';
-    }
 }
 
 // --- LOCAL STORAGE (HÁBITOS) ---
