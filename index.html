@@ -78,6 +78,59 @@
 
         </div>
     </div>
+    <div id="workout-mode" class="fixed inset-0 bg-slate-950 z-50 hidden flex-col">
+    <div class="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900">
+        <button onclick="closeWorkout()" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+        <span id="wo-progress" class="text-xs font-bold text-blue-500">Ejercicio 1/5</span>
+        <button onclick="toggleSound()" class="text-slate-400"><i id="sound-icon" class="fas fa-volume-up"></i></button>
+    </div>
+
+    <div class="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6 relative overflow-hidden">
+        
+        <div class="w-full max-w-sm aspect-video bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 relative">
+            <iframe id="wo-video" class="w-full h-full object-cover" src="" frameborder="0" allowfullscreen></iframe>
+            <div id="timer-overlay" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden backdrop-blur-sm">
+                <span id="timer-display" class="text-6xl font-black text-white tabular-nums">00:00</span>
+            </div>
+        </div>
+
+        <div>
+            <h2 id="wo-title" class="text-2xl font-black text-white italic mb-2">NOMBRE EJERCICIO</h2>
+            <div class="flex justify-center gap-3 mb-4">
+                <span id="wo-sets" class="bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-bold shadow-lg shadow-blue-900/50">4 Series</span>
+                <span id="wo-reps" class="bg-emerald-600 text-white px-3 py-1 rounded-lg text-sm font-bold shadow-lg shadow-emerald-900/50">12 Reps</span>
+            </div>
+            <p id="wo-note" class="text-slate-400 text-xs italic bg-slate-900 p-3 rounded-xl border border-slate-800">Nota técnica aquí...</p>
+        </div>
+
+        <button id="btn-start-timer" onclick="startTimer()" class="hidden bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-8 rounded-full shadow-lg transition-transform active:scale-95">
+            <i class="fas fa-stopwatch mr-2"></i> Iniciar Tiempo
+        </button>
+    </div>
+
+    <div class="p-6 border-t border-slate-800 bg-slate-900">
+        <button onclick="nextExercise()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl text-lg shadow-xl transition-all active:scale-95 flex items-center justify-center gap-2">
+            Siguiente Ejercicio <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+</div>
+
+<audio id="timer-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+
+<div class="px-6 mb-4">
+    <button onclick="startRoutineFlow()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-2xl shadow-lg border border-indigo-400/30 flex items-center justify-between group transition-all hover:scale-[1.02]">
+        <div class="text-left">
+            <p class="text-[10px] text-indigo-200 font-bold uppercase">Modo Guiado</p>
+            <h3 class="font-bold text-white text-lg">EMPEZAR RUTINA</h3>
+        </div>
+        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-indigo-600 transition-colors">
+            <i class="fas fa-play"></i>
+        </div>
+    </button>
+    <div id="daily-recommendation" class="mt-2 text-center text-[10px] text-emerald-400 font-bold hidden">
+        <i class="fas fa-calendar-check mr-1"></i> Hoy es <span id="day-name"></span>: Te toca esta rutina.
+    </div>
+</div>
 
     <script src="js/data.js"></script>
     <script src="js/main.js"></script>
