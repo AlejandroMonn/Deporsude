@@ -3,9 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deporsude | Plan Maestro</title>
+    <title>Deporsude AI | Plan Maestro con Visión</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- MediaPipe Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans selection:bg-blue-500 selection:text-white">
@@ -15,7 +22,7 @@
 
             <header class="p-6 pb-2 bg-gradient-to-b from-slate-800 to-slate-900 z-10">
                 <div class="flex justify-between items-center mb-4">
-                    <h1 class="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tracking-tighter">DEPORSUDE</h1>
+                    <h1 class="text-2xl font-black italic text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400 tracking-tighter">DEPORSUDE AI</h1>
                     <span class="text-[10px] bg-slate-800 border border-slate-700 px-2 py-1 rounded-full text-slate-400" id="current-phase-badge">Cargando...</span>
                 </div>
                 <div class="mb-2">
@@ -34,7 +41,9 @@
                 <div class="mb-2">
                      <button onclick="startRoutineFlow()" class="w-full bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-2xl shadow-lg border border-indigo-400/30 flex items-center justify-between group transition-all hover:scale-[1.02]">
                         <div class="text-left">
-                            <p class="text-[10px] text-indigo-200 font-bold uppercase">Modo Guiado</p>
+                            <p class="text-[10px] text-indigo-200 font-bold uppercase flex items-center gap-2">
+                                <i class="fas fa-robot"></i> Modo AI con Cámara
+                            </p>
                             <h3 class="font-bold text-white text-lg">EMPEZAR RUTINA</h3>
                         </div>
                         <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-indigo-600 transition-colors">
@@ -45,21 +54,21 @@
                 </div>
 
                 <div class="grid grid-cols-3 gap-2" id="phase-selector">
-                    </div>
+                </div>
 
                 <div class="space-y-1">
                     <label class="text-[9px] font-bold text-slate-500 uppercase tracking-widest ml-1">Semana de Progresión</label>
                     <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-hide" id="week-selector">
-                        </div>
+                    </div>
                 </div>
 
                 <div class="flex bg-slate-950/50 p-1 rounded-xl" id="day-selector">
-                    </div>
+                </div>
             </div>
 
             <main class="flex-1 overflow-y-auto p-6 scrollbar-hide mb-16">
                 <div id="exercise-list" class="space-y-4 pb-10">
-                    </div>
+                </div>
             </main>
 
             <footer class="bg-slate-950/90 backdrop-blur-md border-t border-slate-800 p-4 absolute bottom-0 w-full z-20">
@@ -80,19 +89,52 @@
                 </div>
             </footer>
 
+            <!-- MODO WORKOUT CON CÁMARA AI -->
             <div id="workout-mode" class="fixed inset-0 bg-slate-950 z-50 hidden flex-col">
+                
+                <!-- Header de control -->
                 <div class="p-4 flex justify-between items-center border-b border-slate-800 bg-slate-900">
                     <button onclick="closeWorkout()" class="text-slate-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
                     <span id="wo-progress" class="text-xs font-bold text-blue-500">--/--</span>
-                    <button onclick="toggleSound()" class="text-slate-400"><i id="sound-icon" class="fas fa-volume-up"></i></button>
+                    <button onclick="toggleCameraMode()" id="camera-toggle" class="text-slate-400 hover:text-emerald-400">
+                        <i class="fas fa-video text-lg"></i>
+                    </button>
                 </div>
-                <div class="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-6 relative overflow-hidden">
-                    <div class="w-full max-w-sm aspect-video bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 relative">
+
+                <!-- Área de video/canvas -->
+                <div class="flex-1 flex flex-col items-center justify-center p-4 text-center space-y-4 relative overflow-hidden">
+                    
+                    <!-- Container de video y canvas -->
+                    <div class="w-full max-w-md aspect-video bg-slate-800 rounded-2xl overflow-hidden shadow-2xl border border-slate-700 relative">
+                        
+                        <!-- Video de la cámara (hidden por defecto) -->
+                        <video id="pose-video" class="absolute inset-0 w-full h-full object-cover hidden" autoplay playsinline></video>
+                        
+                        <!-- Canvas para dibujar el esqueleto -->
+                        <canvas id="pose-canvas" class="absolute inset-0 w-full h-full hidden"></canvas>
+                        
+                        <!-- Video de YouTube (fallback cuando no hay cámara) -->
                         <iframe id="wo-video" class="w-full h-full object-cover" src="" frameborder="0" allowfullscreen></iframe>
+                        
+                        <!-- Overlay de timer -->
                         <div id="timer-overlay" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden backdrop-blur-sm">
                             <span id="timer-display" class="text-6xl font-black text-white tabular-nums">00:00</span>
                         </div>
+
+                        <!-- Contador de repeticiones AI -->
+                        <div id="rep-counter" class="hidden absolute top-4 left-4 bg-black/80 backdrop-blur-md rounded-2xl px-6 py-4 border border-emerald-500/50">
+                            <p class="text-xs text-slate-400 mb-1">Repeticiones</p>
+                            <p class="text-5xl font-black text-emerald-400 tabular-nums" id="rep-count">0</p>
+                        </div>
+
+                        <!-- Estado de detección -->
+                        <div id="pose-status" class="hidden absolute top-4 right-4 px-3 py-2 rounded-full font-bold text-xs flex items-center gap-2 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30">
+                            <i class="fas fa-circle-notch fa-spin"></i>
+                            <span>Buscando pose...</span>
+                        </div>
                     </div>
+
+                    <!-- Información del ejercicio -->
                     <div>
                         <h2 id="wo-title" class="text-2xl font-black text-white italic mb-2">--</h2>
                         <div class="flex justify-center gap-3 mb-4">
@@ -101,21 +143,36 @@
                         </div>
                         <p id="wo-note" class="text-slate-400 text-xs italic bg-slate-900 p-3 rounded-xl border border-slate-800">--</p>
                     </div>
+
+                    <!-- Botón de timer manual (para ejercicios isométricos) -->
                     <button id="btn-start-timer" class="hidden bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 px-8 rounded-full shadow-lg">
                         <i class="fas fa-stopwatch mr-2"></i> Iniciar Tiempo
                     </button>
                 </div>
-                <div class="p-6 border-t border-slate-800 bg-slate-900">
+
+                <!-- Footer de control -->
+                <div class="p-6 border-t border-slate-800 bg-slate-900 space-y-3">
+                    <!-- Botón de reset de contador (solo visible en modo cámara) -->
+                    <button id="reset-counter-btn" onclick="resetRepCounter()" class="hidden w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl text-sm shadow-xl flex items-center justify-center gap-2">
+                        <i class="fas fa-redo"></i> Reiniciar Contador
+                    </button>
+                    
                     <button onclick="nextExercise()" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl text-lg shadow-xl flex items-center justify-center gap-2">
                         Siguiente <i class="fas fa-chevron-right"></i>
                     </button>
                 </div>
             </div>
+
+            <!-- Sonido de notificación -->
             <audio id="timer-sound" src="https://actions.google.com/sounds/v1/alarms/beep_short.ogg" preload="auto"></audio>
+            <audio id="rep-sound" src="https://actions.google.com/sounds/v1/alarms/digital_watch_alarm_long.ogg" preload="auto"></audio>
         </div>
     </div>
 
+    <!-- Scripts -->
     <script src="js/data.js"></script>
+    <script src="js/pose-detection.js"></script>
+    <script src="js/rep-counter.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
