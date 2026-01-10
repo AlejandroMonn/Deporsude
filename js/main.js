@@ -7,7 +7,7 @@ let currentRoutineKey = 'A';
 let activeExercisesList = [];
 let currentExerciseIndex = 0;
 let timerInterval = null;
-let cameraMode = false; // false = video YouTube, true = cámara AI
+let cameraMode = true; // TRUE = Cámara AI activada por defecto
 
 // --- INICIALIZACIÓN ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -240,53 +240,64 @@ function loadActiveExercise() {
     const ex = activeExercisesList[currentExerciseIndex];
     if(!ex) return;
 
-    // Configurar el ejercicio actual para el contador
-    if (typeof setCurrentExercise === 'function') {
-        setCurrentExercise(ex.n);
-    }
-
-    // Actualizar UI
-    document.getElementById('wo-title').innerText = ex.n;
-    
-    // Parsear series/reps con seguridad
+    // Parsear series/reps
     let sets = "3 Series", reps = "12 Reps";
     if(ex.s.includes('x')) {
-        [sets, reps] = ex.s.split('x');
-        sets += " Series";
+        const parts = ex.s.split('x');
+        sets = parts[0] + " Series";
+        reps = parts[1];
     } else {
         reps = ex.s;
     }
 
+    // Configurar el ejercicio actual para el contador AI
+    if (typeof setCurrentExercise === 'function') {
+        setCurrentExercise(ex.n, reps, ex.seconds || 0);
+    }
+
+    // Actualizar UI
+    document.getElementById('wo-title').innerText = ex.n;
     document.getElementById('wo-sets').innerText = sets;
     document.getElementById('wo-reps').innerText = reps;
     document.getElementById('wo-note').innerText = ex.note;
     document.getElementById('wo-progress').innerText = `Ejercicio ${currentExerciseIndex + 1}/${activeExercisesList.length}`;
 
-    // Si no está en modo cámara, mostrar video de YouTube
+    // CÁMARA ACTIVADA POR DEFECTO
+    if (cameraMode) {
+        // Ya está en modo cámara, solo actualizar
+        console.log("📹 Modo cámara activo");
+    } else {
+        // Activar cámara al cargar ejercicio
+        setTimeout(() => {
+            toggleCameraMode();
+        }, 500);
+    }
+
+    // Si el ejercicio tiene video de YouTube como referencia (modo cámara OFF)
     if (!cameraMode) {
         const videoFrame = document.getElementById('wo-video');
         if(ex.v.includes('embed')) {
             videoFrame.src = ex.v;
         } else {
-            // Video genérico si no es embed
             videoFrame.src = "https://www.youtube.com/embed/videoseries?list=PL_J8l4H9C_2w4-J3B7y8";
         }
     }
 
-    // Timer
+    // Timer manual (solo si NO hay soporte de conteo automático)
     const timerOverlay = document.getElementById('timer-overlay');
     const btnTimer = document.getElementById('btn-start-timer');
     
-    if (ex.seconds) {
+    // Ocultar timer manual si hay conteo automático
+    const hasAutoCount = typeof supportsAutoCount === 'function' && supportsAutoCount(ex.n);
+    
+    if (ex.seconds && !hasAutoCount) {
         timerOverlay.classList.remove('hidden');
         btnTimer.classList.remove('hidden');
         document.getElementById('timer-display').innerText = formatTime(ex.seconds);
         
-        // Clonar nodo para limpiar event listeners viejos
         const newBtn = btnTimer.cloneNode(true);
         btnTimer.parentNode.replaceChild(newBtn, btnTimer);
         newBtn.onclick = () => runTimer(ex.seconds);
-        
     } else {
         timerOverlay.classList.add('hidden');
         btnTimer.classList.add('hidden');
@@ -296,12 +307,17 @@ function loadActiveExercise() {
 
 function nextExercise() {
     stopTimer();
+    
     if (currentExerciseIndex < activeExercisesList.length - 1) {
         currentExerciseIndex++;
         loadActiveExercise();
     } else {
         closeWorkout();
-        alert("¡Entrenamiento completado! 🔥");
+        
+        // Mensaje de felicitación
+        setTimeout(() => {
+            alert("🔥 ¡Entrenamiento completado! Excelente trabajo 💪");
+        }, 300);
     }
 }
 
@@ -317,7 +333,8 @@ function closeWorkout() {
     const modal = document.getElementById('workout-mode');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
-    // Limpiar src del video para detener reproducción
+    
+    // Limpiar src del video
     document.getElementById('wo-video').src = "";
 }
 
@@ -352,7 +369,7 @@ function toggleCameraMode() {
     }
 }
 
-// --- TIMER UTILS ---
+// --- TIMER UTILS (para ejercicios sin conteo automático) ---
 function runTimer(seconds) {
     let timeLeft = seconds;
     const display = document.getElementById('timer-display');
