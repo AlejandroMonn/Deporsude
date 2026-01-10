@@ -7,6 +7,13 @@ let camera = null;
 let canvasCtx = null;
 let poseActive = false;
 let currentLandmarks = null;
+let gestureDetector = null;
+
+// Variables para detección de gestos
+let leftHandRaised = false;
+let rightHandRaised = false;
+let gestureHoldTime = 0;
+let lastGestureCheck = Date.now();
 
 // Inicializar MediaPipe Pose
 function initPoseDetection() {
@@ -34,8 +41,8 @@ function initPoseDetection() {
         smoothLandmarks: true,
         enableSegmentation: false,
         smoothSegmentation: false,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5
+        minDetectionConfidence: 0.6,
+        minTrackingConfidence: 0.6
     });
 
     // Callback cuando se detecta una pose
@@ -48,8 +55,8 @@ function initPoseDetection() {
                 await pose.send({image: videoElement});
             }
         },
-        width: 640,
-        height: 480
+        width: 1280,
+        height: 720
     });
 
     console.log("✅ MediaPipe inicializado correctamente");
@@ -63,8 +70,11 @@ function onPoseResults(results) {
     canvasCtx.save();
     canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
 
-    // Dibujar la imagen de video
+    // Dibujar la imagen de video (espejo)
+    canvasCtx.scale(-1, 1);
+    canvasCtx.translate(-canvasElement.width, 0);
     canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+    canvasCtx.setTransform(1, 0, 0, 1, 0, 0);
 
     if (results.poseLandmarks) {
         currentLandmarks = results.poseLandmarks;
@@ -85,6 +95,9 @@ function onPoseResults(results) {
             radius: 6
         });
 
+        // Detectar gestos para saltar ejercicio
+        detectGestures(results.poseLandmarks);
+
         // Procesar para conteo de repeticiones
         if (typeof processRepCount === 'function') {
             processRepCount(results.poseLandmarks);
@@ -92,9 +105,114 @@ function onPoseResults(results) {
     } else {
         currentLandmarks = null;
         updatePoseStatus(false);
+        resetGestureDetection();
     }
 
     canvasCtx.restore();
+}
+
+// Detectar gestos para controlar la app
+function detectGestures(landmarks) {
+    if (!landmarks) return;
+
+    const now = Date.now();
+    
+    // Puntos de referencia
+    const leftWrist = landmarks[15];
+    const rightWrist = landmarks[16];
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const nose = landmarks[0];
+
+    if (!leftWrist || !rightWrist || !leftShoulder || !rightShoulder || !nose) return;
+
+    // GESTO: Ambas manos arriba por 2 segundos = Saltar al siguiente ejercicio
+    const leftHandUp = leftWrist.y < leftShoulder.y - 0.1;
+    const rightHandUp = rightWrist.y < rightShoulder.y - 0.1;
+    
+    if (leftHandUp && rightHandUp) {
+        if (!leftHandRaised || !rightHandRaised) {
+            // Inicio del gesto
+            leftHandRaised = true;
+            rightHandRaised = true;
+            lastGestureCheck = now;
+            gestureHoldTime = 0;
+            console.log("🙌 Gesto detectado: Ambas manos arriba");
+            showGestureIndicator('Mantén 2s para saltar ejercicio', 'yellow');
+        } else {
+            // Gesto mantenido
+            gestureHoldTime = (now - lastGestureCheck) / 1000;
+            
+            if (gestureHoldTime >= 2) {
+                // Gesto completado
+                console.log("✅ Gesto completado - Saltando ejercicio");
+                showGestureIndicator('¡Saltando!', 'green');
+                triggerNextExercise();
+                resetGestureDetection();
+            } else {
+                // Mostrar progreso
+                const progress = Math.round((gestureHoldTime / 2) * 100);
+                showGestureIndicator(`${progress}% - Mantén...`, 'yellow');
+            }
+        }
+    } else {
+        // Gesto interrumpido
+        if (leftHandRaised || rightHandRaised) {
+            console.log("❌ Gesto cancelado");
+            resetGestureDetection();
+        }
+    }
+}
+
+// Mostrar indicador visual de gesto
+function showGestureIndicator(text, color) {
+    const canvas = document.getElementById('pose-canvas');
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    
+    ctx.save();
+    ctx.font = 'bold 28px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = color === 'green' ? '#10b981' : color === 'yellow' ? '#eab308' : '#ef4444';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 4;
+    
+    const x = canvas.width / 2;
+    const y = canvas.height - 50;
+    
+    ctx.strokeText(text, x, y);
+    ctx.fillText(text, x, y);
+    ctx.restore();
+}
+
+// Resetear detección de gestos
+function resetGestureDetection() {
+    leftHandRaised = false;
+    rightHandRaised = false;
+    gestureHoldTime = 0;
+}
+
+// Activar siguiente ejercicio mediante gesto
+function triggerNextExercise() {
+    if (typeof nextExercise === 'function') {
+        // Vibración de confirmación
+        if (navigator.vibrate) {
+            navigator.vibrate([100, 50, 100, 50, 100]);
+        }
+        
+        // Sonido
+        const sound = document.getElementById('timer-sound');
+        if (sound) {
+            sound.currentTime = 0;
+            sound.play().catch(e => console.log("Audio blocked"));
+        }
+        
+        // Esperar un momento antes de cambiar
+        setTimeout(() => {
+            nextExercise();
+        }, 500);
+    }
 }
 
 // Actualizar estado visual de detección
@@ -130,9 +248,9 @@ async function startPoseDetection() {
     poseStatus.classList.remove('hidden');
     resetBtn.classList.remove('hidden');
 
-    // Ajustar tamaño del canvas
-    canvasElement.width = 640;
-    canvasElement.height = 480;
+    // Ajustar tamaño del canvas (más grande)
+    canvasElement.width = 1280;
+    canvasElement.height = 720;
 
     try {
         poseActive = true;
@@ -156,6 +274,7 @@ function stopPoseDetection() {
     
     poseActive = false;
     currentLandmarks = null;
+    resetGestureDetection();
     
     if (camera) {
         camera.stop();

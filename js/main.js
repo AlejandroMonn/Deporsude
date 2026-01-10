@@ -241,23 +241,28 @@ function loadActiveExercise() {
     if(!ex) return;
 
     // Parsear series/reps
-    let sets = "3 Series", reps = "12 Reps";
+    let sets = "3", reps = "12";
     if(ex.s.includes('x')) {
         const parts = ex.s.split('x');
-        sets = parts[0] + " Series";
-        reps = parts[1];
+        sets = parts[0].trim();
+        reps = parts[1].trim();
+    } else if (ex.s.includes('series')) {
+        // Para ejercicios como "3 series"
+        const match = ex.s.match(/(\d+)\s*series/i);
+        sets = match ? match[1] : "3";
+        reps = ex.seconds ? `${ex.seconds}s` : "Fallo";
     } else {
         reps = ex.s;
     }
 
     // Configurar el ejercicio actual para el contador AI
     if (typeof setCurrentExercise === 'function') {
-        setCurrentExercise(ex.n, reps, ex.seconds || 0);
+        setCurrentExercise(ex.n, sets, reps, ex.seconds || 0);
     }
 
     // Actualizar UI
     document.getElementById('wo-title').innerText = ex.n;
-    document.getElementById('wo-sets').innerText = sets;
+    document.getElementById('wo-sets').innerText = `Serie 1/${sets}`;
     document.getElementById('wo-reps').innerText = reps;
     document.getElementById('wo-note').innerText = ex.note;
     document.getElementById('wo-progress').innerText = `Ejercicio ${currentExerciseIndex + 1}/${activeExercisesList.length}`;
